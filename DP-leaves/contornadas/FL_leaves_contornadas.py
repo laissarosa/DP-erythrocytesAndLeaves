@@ -11,40 +11,20 @@ import urllib.request
 
 # --- Valores Padrão ---
 START_SEED = 0
-NUMBER_OF_SEEDS = 49
+NUMBER_OF_SEEDS = 50
 NOISE_SCALES = [0.0,0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1]
-CLASSES = [0, 1, 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+CLASSES = [0, 1, 2,3,4,5,6,7,8,9]
 CLASS_NAMES = {
     0: "actinia",
-    1: "amethystina",
-    2: "c01",
-    3: "c02",
-    4: "c03",
-    5: "c04",
-    6: "c05",
-    7: "c06",
-    8: "c07",
-    9: "c08",
-    10: "c09",
-    11: "c10",
-    12: "caerulea",
-    13: "coquecasa",
-    14: "descon1",
-    15: "descon2",
-    16: "descon3",
-    17: "descon4",
-    18: "descon5",
-    19: "foetida",
-    20: "foetida fluminensis",
-    21: "foetida trigosa",
-    22: "gibertii",
-    23: "jequetiba",
-    24: "lima",
-    25: "limao",
-    26: "maliformis",
-    27: "organensis",
-    28: "pitanga",
-    29: "sidifolia"
+    1: "c08",
+    2: "caerulea",
+    3: "coquecasa",
+    4: "descon4",
+    5: "f. fluminensis",
+    6: "jequetiba",
+    7: "lemon",
+    8: "maliformis",
+    9: "organensis",
 }
 
 parser = argparse.ArgumentParser(description="Executa o experimento de inversão de modelo com aprendizado federado.")
@@ -104,7 +84,7 @@ def softmax(Z):
     return expZ / expZ.sum(axis=0, keepdims=True)
 
 # Codifica os rótulos em one-hot encoding
-def one_hot(Y, num_classes=30):
+def one_hot(Y, num_classes=10):
     one_hot_Y = np.zeros((Y.size, num_classes))
     one_hot_Y[np.arange(Y.size), Y.astype(int)] = 1
     return one_hot_Y.T
@@ -135,7 +115,7 @@ def predict_with_first_layer(W1, b1, X):
 # Retropropagação (cálculo dos gradientes)
 def back_prop(Z1, A1, Z2, A2, W2, X, Y):
     m = Y.size
-    one_hot_Y = one_hot(Y, 30)  # 30 classes
+    one_hot_Y = one_hot(Y, 10)  # 10 classes
 
     dZ2 = A2 - one_hot_Y
 
@@ -157,7 +137,7 @@ def update_params(W1, b1, W2, b2, dW1, db1, dW2, db2, alpha):
     return W1, b1, W2, b2
 
 # Divide o dataset entre os clientes de forma estratificada por classe
-# 20 imgs/classe × 30 classes = 600 total, 5 clientes
+# 20 imgs/classe × 10 classes = 600 total, 5 clientes
 #  amostras/cliente → 17 por classe por cliente
 #samples_per_client=510 para garantir que cada cliente tenha 17 imagens de cada classe 
 def split_data(X, Y, num_clients, samples_per_client=510):
@@ -178,10 +158,10 @@ def split_data(X, Y, num_clients, samples_per_client=510):
 
 # Inicializa pesos e bias — 64 neurônios escondidos, inicialização He
 def init_params():
-    W1 = np.random.randn(64, 784) * np.sqrt(2.0 / 784)
+    W1 = np.random.randn(64, 1024) * np.sqrt(2.0 / 1024)
     b1 = np.zeros((64, 1))
-    W2 = np.random.randn(30, 64)  * np.sqrt(2.0 / 64)
-    b2 = np.zeros((30, 1))
+    W2 = np.random.randn(10, 64)  * np.sqrt(2.0 / 64)
+    b2 = np.zeros((10, 1))
     return W1, b1, W2, b2
 
 # Treinamento local com SGD + momentum e mini-batches
@@ -261,7 +241,7 @@ def compute_metrics(real_image, reconstructed_image):
 # Gera uma perturbação localizada para imagem
 def localized_perturbation(X_sample, perturbation_size=50, sigma=0.05):
     perturbation = np.zeros_like(X_sample)
-    active_pixels = np.random.choice(784, perturbation_size, replace=False)
+    active_pixels = np.random.choice(1024, perturbation_size, replace=False)
     perturbation[active_pixels] = np.random.normal(0, sigma, size=(perturbation_size, 1))
     return perturbation
 
@@ -309,12 +289,12 @@ def display_matching_images(images, losses, matching_images, labels, iterations)
     fig, axes = plt.subplots(1, len(matching_images), figsize=(15, 5))
     if len(matching_images) > 1:
         for i, img in enumerate(matching_images):
-            axes[i].imshow(img.reshape(28, 28), cmap='gray')
-            axes[i].set_title(f"Real {class_name}")  # <-- usa o nome
+            axes[i].imshow(img.reshape(32, 32), cmap='gray')
+            axes[i].set_title(f"{class_name}")  # <-- usa o nome
             axes[i].axis('off')
     elif len(matching_images) == 1:
-        axes.imshow(matching_images[0].reshape(28, 28), cmap='gray')
-        axes.set_title(f"Real {class_name}")          # <-- usa o nome
+        axes.imshow(matching_images[0].reshape(32, 32), cmap='gray')
+        axes.set_title(f"{class_name}")          # <-- usa o nome
         axes.axis('off')
     
     filename = f"{class_name}/Matching Images.png"
@@ -325,10 +305,10 @@ def display_matching_images(images, losses, matching_images, labels, iterations)
 # Reconstrução ingênua — iterações aumentadas para 4000
 def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
                        target_certainty=0.999, max_iterations=4000, milestone=500):
-    X_sample = np.zeros((784, 1))
+    X_sample = np.zeros((1024, 1))
 
     num_active_pixels = 50
-    active_pixels = np.random.choice(784, num_active_pixels, replace=False)
+    active_pixels = np.random.choice(1024, num_active_pixels, replace=False)
     X_sample[active_pixels] = np.random.uniform(0.5, 1.0, size=(num_active_pixels, 1))
     
     iterations = 0
@@ -345,7 +325,7 @@ def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
         certainty = A2[target_label, 0]
 
         if iterations % milestone == 0:
-            milestone_images.append(X_sample.reshape(28, 28))
+            milestone_images.append(X_sample.reshape(32, 32))
             milestone_certainties.append(certainty)
             milestone_iterations.append(iterations)
 
@@ -362,7 +342,7 @@ def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
 
         iterations += 1
 
-    milestone_images.append(X_sample.reshape(28, 28))
+    milestone_images.append(X_sample.reshape(32, 32))
     milestone_certainties.append(certainty)
     milestone_iterations.append(iterations)
 
@@ -376,7 +356,7 @@ def reconstruct_via_loss(W1, b1, W2, b2, target_label, client_data,
                          learning_rate=0.01, iterations=4000, momentum=0.9):
     X_client, Y_client = client_data
 
-    X_reconstructed = np.zeros((784, 1))
+    X_reconstructed = np.zeros((1024, 1))
     
     velocity = np.zeros_like(X_reconstructed)
 
@@ -390,7 +370,7 @@ def reconstruct_via_loss(W1, b1, W2, b2, target_label, client_data,
         Z2 = np.dot(W2, A1) + b2
         A2 = np.exp(Z2) / np.sum(np.exp(Z2), axis=0)
 
-        target_one_hot = np.zeros((30, 1))
+        target_one_hot = np.zeros((10, 1))
         target_one_hot[target_label] = 1
 
         loss = -np.sum(target_one_hot * np.log(A2 + 1e-8))
@@ -405,7 +385,7 @@ def reconstruct_via_loss(W1, b1, W2, b2, target_label, client_data,
         X_reconstructed = np.clip(X_reconstructed, 0, 1)
 
         if i % 500 == 0 or i == iterations - 1:
-            milestone_images.append(X_reconstructed.reshape(28, 28))
+            milestone_images.append(X_reconstructed.reshape(32, 32))
             milestone_losses.append(loss)
             milestone_iterations.append(i)
 
@@ -436,13 +416,13 @@ def compute_saliency_map(W1, b1, W2, b2, X_input):
     saliency_map = np.abs(W1.T @ dZ1)  # Importance of each input pixel
 
     # Normalize for better visualization
-    saliency_map = saliency_map.reshape(28, 28)
+    saliency_map = saliency_map.reshape(32, 32)
     saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
 
     # Display saliency map
     plt.figure(figsize=(6, 3))
     plt.subplot(1, 2, 1)
-    plt.imshow(X_input.reshape(28, 28), cmap='gray')
+    plt.imshow(X_input.reshape(32, 32), cmap='gray')
     plt.title("Original Image")
     plt.axis('off')
 
@@ -465,7 +445,7 @@ def add_noise(weight, noise_scale):
     return weight + noise
 
 # Função que cria o dataset a partir da pasta outlined_leaves
-def load_outlined_leaves_dataset_csv(dataset_path="outlined_leaves", csv_path="outlined_leaves_dataset.csv", image_size=(28, 28)):
+def load_outlined_leaves_dataset_csv(dataset_path="outlined_leaves", csv_path="outlined_leaves_dataset.csv", image_size=(32, 32)):
     """
     Lê ou cria o CSV do dataset de endoscopia, redimensiona imagens,
     normaliza pixels e converte labels para números. Retorna tudo como um único array NumPy.
@@ -605,14 +585,14 @@ if __name__ == "__main__":
 
                         loss_reconstructed_image, loss_images = reconstruct_via_loss(*client_params, target_label, client_data)
                         naive_reconstructed_image, naive_images = invert_model_naive(*client_params, target_label, client_data)
-                        loss_reconstructed_image = loss_reconstructed_image.reshape(28, 28) * 255
-                        naive_reconstructed_image = naive_reconstructed_image.reshape(28, 28) * 255
+                        loss_reconstructed_image = loss_reconstructed_image.reshape(32, 32) * 255
+                        naive_reconstructed_image = naive_reconstructed_image.reshape(32, 32) * 255
 
                         matching_indices = np.where(Y_client == target_label)[0]
 
                         best_ssim_loss, best_metrics_loss = -1, None
                         for idx in matching_indices:
-                            candidate_image = X_client[:, idx].reshape(28, 28) * 255
+                            candidate_image = X_client[:, idx].reshape(32, 32) * 255
                             mse_val, psnr_val, ssim_val = compute_metrics(candidate_image, loss_reconstructed_image)
                             if ssim_val > best_ssim_loss:
                                 best_ssim_loss = ssim_val
@@ -621,7 +601,7 @@ if __name__ == "__main__":
 
                         best_ssim_naive, best_metrics_naive = -1, None
                         for idx in matching_indices:
-                            candidate_image = X_client[:, idx].reshape(28, 28) * 255
+                            candidate_image = X_client[:, idx].reshape(32, 32) * 255
                             mse_val, psnr_val, ssim_val = compute_metrics(candidate_image, naive_reconstructed_image)
                             if ssim_val > best_ssim_naive:
                                 best_ssim_naive = ssim_val

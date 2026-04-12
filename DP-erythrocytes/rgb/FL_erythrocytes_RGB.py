@@ -9,17 +9,17 @@ import csv
 
 # --- Valores Padrão ---
 START_SEED = 0
-NUMBER_OF_SEEDS = 49
+NUMBER_OF_SEEDS = 50
 NOISE_SCALES = [0.0,0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1]
 CLASSES = [0, 1, 2]
 CLASS_NAMES = {
-    0: "circular",
-    1: "falciforme",
-    2: "outras",
+    0: "round",
+    1: "sickle",
+    2: "others",
 }
 
-# Tamanho de entrada: 28 * 28 * 3 = 2352 (RGB)
-INPUT_SIZE = 28 * 28 * 3  # 2352
+# Tamanho de entrada: 32 * 32 * 3 = 3072 (RGB)
+INPUT_SIZE = 32 * 32 * 3  # 3072
 
 parser = argparse.ArgumentParser(description="Executa o experimento de inversão de modelo com aprendizado federado.")
 
@@ -51,7 +51,7 @@ print(f"  START_SEED: {START_SEED}")
 print(f"  NUMBER_OF_SEEDS: {NUMBER_OF_SEEDS}")
 print(f"  NOISE_SCALES: {NOISE_SCALES}")
 print(f"  CLASSES: {CLASSES}")
-print(f"  INPUT_SIZE: {INPUT_SIZE} (28x28x3, RGB)")
+print(f"  INPUT_SIZE: {INPUT_SIZE} (32x32x3, RGB)")
 
 results_data = []
 
@@ -132,7 +132,7 @@ def split_data(X, Y, num_clients, samples_per_client=39):
     return clients
 
 def init_params():
-    # W1 atualizado: INPUT_SIZE = 2352 (28*28*3) em vez de 784
+    # W1 atualizado: INPUT_SIZE = 3072 (32*32*3) em vez de 784
     W1 = np.random.randn(64, INPUT_SIZE) * np.sqrt(2.0 / INPUT_SIZE)
     b1 = np.zeros((64, 1))
     W2 = np.random.randn(3, 64) * np.sqrt(2.0 / 64)
@@ -211,7 +211,7 @@ def compute_metrics(real_image, reconstructed_image):
 
 def localized_perturbation(X_sample, perturbation_size=50, sigma=0.05):
     perturbation = np.zeros_like(X_sample)
-    # INPUT_SIZE = 2352 para RGB
+    # INPUT_SIZE = 3072 para RGB
     active_pixels = np.random.choice(INPUT_SIZE, perturbation_size, replace=False)
     perturbation[active_pixels] = np.random.normal(0, sigma, size=(perturbation_size, 1))
     return perturbation
@@ -225,7 +225,7 @@ def display_images(images, losses, matching_images, labels, iterations, round_nu
 
     for i, img in enumerate(images):
         if i == len(images) - 1:
-            # img já é (28, 28, 3) — exibir como RGB sem cmap
+            # img já é (32, 32, 3) — exibir como RGB sem cmap
             axes.imshow(np.clip(img, 0, 1) if img.max() <= 1.0 else np.clip(img / 255.0, 0, 1))
             axes.axis('off')
 
@@ -257,13 +257,13 @@ def display_matching_images(images, losses, matching_images, labels, iterations)
     fig, axes = plt.subplots(1, len(matching_images), figsize=(15, 5))
     if len(matching_images) > 1:
         for i, img in enumerate(matching_images):
-            # reshape para (28, 28, 3) — RGB
-            axes[i].imshow(img.reshape(28, 28, 3))
-            axes[i].set_title(f"Real {class_name}")
+            # reshape para (32, 32, 3) — RGB
+            axes[i].imshow(img.reshape(32, 32, 3))
+            axes[i].set_title(f"{class_name}")
             axes[i].axis('off')
     elif len(matching_images) == 1:
-        axes.imshow(matching_images[0].reshape(28, 28, 3))
-        axes.set_title(f"Real {class_name}")
+        axes.imshow(matching_images[0].reshape(32, 32, 3))
+        axes.set_title(f"{class_name}")
         axes.axis('off')
 
     filename = f"{class_name}/Matching Images.png"
@@ -273,7 +273,7 @@ def display_matching_images(images, losses, matching_images, labels, iterations)
 
 def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
                        target_certainty=0.999, max_iterations=4000, milestone=500):
-    # X_sample com INPUT_SIZE = 2352
+    # X_sample com INPUT_SIZE = 3072
     X_sample = np.zeros((INPUT_SIZE, 1))
 
     num_active_pixels = 50
@@ -294,8 +294,8 @@ def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
         certainty = A2[target_label, 0]
 
         if iterations % milestone == 0:
-            # reshape para (28, 28, 3) — RGB
-            milestone_images.append(X_sample.reshape(28, 28, 3))
+            # reshape para (32, 32, 3) — RGB
+            milestone_images.append(X_sample.reshape(32, 32, 3))
             milestone_certainties.append(certainty)
             milestone_iterations.append(iterations)
 
@@ -312,8 +312,8 @@ def invert_model_naive(W1, b1, W2, b2, target_label, client_data,
 
         iterations += 1
 
-    # reshape para (28, 28, 3) — RGB
-    milestone_images.append(X_sample.reshape(28, 28, 3))
+    # reshape para (32, 32, 3) — RGB
+    milestone_images.append(X_sample.reshape(32, 32, 3))
     milestone_certainties.append(certainty)
     milestone_iterations.append(iterations)
 
@@ -326,7 +326,7 @@ def reconstruct_via_loss(W1, b1, W2, b2, target_label, client_data,
                          learning_rate=0.01, iterations=4000, momentum=0.9):
     X_client, Y_client = client_data
 
-    # X_reconstructed com INPUT_SIZE = 2352
+    # X_reconstructed com INPUT_SIZE = 3072
     X_reconstructed = np.zeros((INPUT_SIZE, 1))
     velocity = np.zeros_like(X_reconstructed)
 
@@ -355,8 +355,8 @@ def reconstruct_via_loss(W1, b1, W2, b2, target_label, client_data,
         X_reconstructed = np.clip(X_reconstructed, 0, 1)
 
         if i % 500 == 0 or i == iterations - 1:
-            # reshape para (28, 28, 3) — RGB
-            milestone_images.append(X_reconstructed.reshape(28, 28, 3))
+            # reshape para (32, 32, 3) — RGB
+            milestone_images.append(X_reconstructed.reshape(32, 32, 3))
             milestone_losses.append(loss)
             milestone_iterations.append(i)
 
@@ -382,14 +382,14 @@ def compute_saliency_map(W1, b1, W2, b2, X_input):
     dZ1 = dA1 * deriv_ReLU(Z1)
     saliency_map = np.abs(W1.T @ dZ1)
 
-    # reshape para (28, 28, 3) e média dos canais para visualização 2D
-    saliency_map = saliency_map.reshape(28, 28, 3).mean(axis=2)
+    # reshape para (32, 32, 3) e média dos canais para visualização 2D
+    saliency_map = saliency_map.reshape(32, 32, 3).mean(axis=2)
     saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
 
     plt.figure(figsize=(6, 3))
     plt.subplot(1, 2, 1)
     # Exibe imagem RGB original
-    plt.imshow(X_input.reshape(28, 28, 3))
+    plt.imshow(X_input.reshape(32, 32, 3))
     plt.title("Original Image")
     plt.axis('off')
 
@@ -409,18 +409,18 @@ def add_noise(weight, noise_scale):
     noise = np.random.normal(0, noise_scale, size=weight.shape)
     return weight + noise
 
-def load_erythrocytes_dataset_csv(dataset_path="erythrocytes", csv_path="erythrocytes_dataset.csv", image_size=(28, 28)):
+def load_erythrocytes_dataset_csv(dataset_path="erythrocytes", csv_path="erythrocytes_dataset.csv", image_size=(32, 32)):
     """
-    Lê ou cria o CSV do dataset de eritrócitos com imagens RGB (28x28x3 = 2352 features).
+    Lê ou cria o CSV do dataset de eritrócitos com imagens RGB (32x32x3 = 3072 features).
     Se o CSV existir mas tiver sido gerado com 784 features (grayscale), apague-o
-    manualmente para que seja recriado com 2352 features (RGB).
+    manualmente para que seja recriado com 3072 features (RGB).
     """
     if not os.path.exists(csv_path):
-        print(f"{csv_path} not found, creating CSV from images (RGB, 28x28)...")
+        print(f"{csv_path} not found, creating CSV from images (RGB, 32x32)...")
         classes = [d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d))]
         classes.sort()
 
-        # Cabeçalho: label + 2352 colunas de pixel (28*28*3)
+        # Cabeçalho: label + 3072 colunas de pixel (32*32*3)
         header = ["label"] + [f"p{i}" for i in range(image_size[0] * image_size[1] * 3)]
 
         with open(csv_path, 'w', newline='') as f:
@@ -435,7 +435,7 @@ def load_erythrocytes_dataset_csv(dataset_path="erythrocytes", csv_path="erythro
                         # Converte para RGB (3 canais) em vez de "L" (grayscale)
                         img = Image.open(img_path).convert("RGB")
                         img = img.resize(image_size)
-                        img_array = np.array(img, dtype=np.float32).flatten() / 255.0  # 2352 valores
+                        img_array = np.array(img, dtype=np.float32).flatten() / 255.0  # 3072 valores
                         row = np.concatenate(([classe_idx], img_array))
                         writer.writerow(row)
 
@@ -443,7 +443,7 @@ def load_erythrocytes_dataset_csv(dataset_path="erythrocytes", csv_path="erythro
 
     data = pd.read_csv(csv_path).to_numpy(dtype=np.float32)
 
-    # Validação: checar se o CSV tem o número correto de colunas (1 label + 2352 features)
+    # Validação: checar se o CSV tem o número correto de colunas (1 label + 3072 features)
     expected_cols = 1 + image_size[0] * image_size[1] * 3
     if data.shape[1] != expected_cols:
         raise ValueError(
@@ -456,7 +456,7 @@ def load_erythrocytes_dataset_csv(dataset_path="erythrocytes", csv_path="erythro
 
 # Carrega o dataset
 data = load_erythrocytes_dataset_csv()
-print(f"Dataset carregado: {data.shape[0]} amostras, {data.shape[1]-1} features (RGB 28x28x3)")
+print(f"Dataset carregado: {data.shape[0]} amostras, {data.shape[1]-1} features (RGB 32x32x3)")
 print("Primeiras labels:", data[:5, 0])
 exception_counter = 0
 
@@ -504,7 +504,7 @@ if __name__ == "__main__":
                     np.random.shuffle(data)
                     m, n = data.shape
 
-                    X_train = data[:, 1:].T  # shape: (2352, num_amostras)
+                    X_train = data[:, 1:].T  # shape: (3072, num_amostras)
                     Y_train = data[:, 0]
                     num_clients = 5
 
@@ -558,16 +558,16 @@ if __name__ == "__main__":
                         loss_reconstructed_image, loss_images = reconstruct_via_loss(*client_params, target_label, client_data)
                         naive_reconstructed_image, naive_images = invert_model_naive(*client_params, target_label, client_data)
 
-                        # reshape para (28, 28, 3) — RGB, escala 0-255
-                        loss_reconstructed_image = loss_reconstructed_image.reshape(28, 28, 3) * 255
-                        naive_reconstructed_image = naive_reconstructed_image.reshape(28, 28, 3) * 255
+                        # reshape para (32, 32, 3) — RGB, escala 0-255
+                        loss_reconstructed_image = loss_reconstructed_image.reshape(32, 32, 3) * 255
+                        naive_reconstructed_image = naive_reconstructed_image.reshape(32, 32, 3) * 255
 
                         matching_indices = np.where(Y_client == target_label)[0]
 
                         best_ssim_loss, best_metrics_loss = -1, None
                         for idx in matching_indices:
-                            # reshape para (28, 28, 3) — RGB
-                            candidate_image = X_client[:, idx].reshape(28, 28, 3) * 255
+                            # reshape para (32, 32, 3) — RGB
+                            candidate_image = X_client[:, idx].reshape(32, 32, 3) * 255
                             mse_val, psnr_val, ssim_val = compute_metrics(candidate_image, loss_reconstructed_image)
                             if ssim_val > best_ssim_loss:
                                 best_ssim_loss = ssim_val
@@ -576,8 +576,8 @@ if __name__ == "__main__":
 
                         best_ssim_naive, best_metrics_naive = -1, None
                         for idx in matching_indices:
-                            # reshape para (28, 28, 3) — RGB
-                            candidate_image = X_client[:, idx].reshape(28, 28, 3) * 255
+                            # reshape para (32, 32, 3) — RGB
+                            candidate_image = X_client[:, idx].reshape(32, 32, 3) * 255
                             mse_val, psnr_val, ssim_val = compute_metrics(candidate_image, naive_reconstructed_image)
                             if ssim_val > best_ssim_naive:
                                 best_ssim_naive = ssim_val

@@ -6,7 +6,7 @@ import os
 CSV_PATH   = "new_results_erythrocytes.csv"
 OUT_FOLDER = "graficos"
 
-CLASS_ORDER   = ["circular", "falciforme", "outras"]
+CLASS_ORDER   = ["round", "sickle", "others"]  # ordem desejada para as classes
 NAME_MAPPING  = {'loss': 'Gradiente', 'naive': 'Ingênua'}
 STYLE_MAPPING = {'loss': '-',         'naive': '--'}
 # ------------------------------------------------------------------------
