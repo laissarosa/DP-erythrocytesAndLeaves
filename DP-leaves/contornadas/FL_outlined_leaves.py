@@ -482,17 +482,6 @@ data = load_outlined_leaves_dataset_csv()
 print("Primeiras labels:", data[:5,0])
 exception_counter = 0 
 
-# ── CSV de pesos da 1ª camada ──────────────────────────────────────────────────
-# Modo APPEND: nunca apaga dados entre execuções. Cabeçalho escrito só uma vez.
-WEIGHTS_CSV_PATH = "pesos_primeira_camada.csv"
-if not os.path.exists(WEIGHTS_CSV_PATH):
-    with open(WEIGHTS_CSV_PATH, mode="w", newline="") as f:
-        csv.writer(f).writerow([
-            "round_num", "class_name",
-            "noise_scale",
-            "accuracy_cliente", "W1_cliente", "b1_cliente"
-        ])
-
 # ── CSV de acurácia da 1ª camada (apenas acurácia, sem pesos) ─────────────────
 # Arquivo separado e leve, fácil de abrir e plotar.
 ACCURACY_CSV_PATH = "acuracia_primeira_camada.csv"
@@ -562,17 +551,6 @@ if __name__ == "__main__":
                         W1_cliente, b1_cliente = client_params[0], client_params[1]
 
                         accuracy_cliente = evaluate_first_layer(W1_cliente, b1_cliente, X_client, Y_client)
-
-                        # Salva pesos completos em append
-                        with open(WEIGHTS_CSV_PATH, mode="a", newline="") as f:
-                            csv.writer(f).writerow([
-                                round_num,
-                                CLASS_NAMES[target_label],
-                                NOISE_SCALE,
-                                accuracy_cliente,
-                                W1_cliente.tolist(),
-                                b1_cliente.tolist()
-                            ])
 
                         # Salva apenas a acurácia em CSV separado, também em append
                         with open(ACCURACY_CSV_PATH, mode="a", newline="") as f:

@@ -137,10 +137,10 @@ def update_params(W1, b1, W2, b2, dW1, db1, dW2, db2, alpha):
     return W1, b1, W2, b2
 
 # Divide o dataset entre os clientes de forma estratificada por classe
-# 20 imgs/classe × 10 classes = 600 total, 5 clientes
-#  amostras/cliente → 17 por classe por cliente
-#samples_per_client=510 para garantir que cada cliente tenha 17 imagens de cada classe 
-def split_data(X, Y, num_clients, samples_per_client=510):
+# 20 imgs/classe × 10 classes = 200 total, 5 clientes
+#  amostras/cliente → 18 por classe por cliente
+#samples_per_client=180 para garantir que cada cliente tenha 18 imagens de cada classe 
+def split_data(X, Y, num_clients, samples_per_client=180):
     classes   = np.unique(Y)
     per_class = samples_per_client // len(classes)
 
@@ -154,7 +154,6 @@ def split_data(X, Y, num_clients, samples_per_client=510):
         np.random.shuffle(idx_list)
         clients.append((X[:, idx_list], Y[idx_list]))
     return clients
-
 
 # Inicializa pesos e bias — 64 neurônios escondidos, inicialização He
 def init_params():
@@ -482,17 +481,6 @@ data = load_filled_leaves_dataset_csv()
 print("Primeiras labels:", data[:5,0])
 exception_counter = 0 
 
-# ── CSV de pesos da 1ª camada ──────────────────────────────────────────────────
-# Modo APPEND: nunca apaga dados entre execuções. Cabeçalho escrito só uma vez.
-WEIGHTS_CSV_PATH = "pesos_primeira_camada.csv"
-if not os.path.exists(WEIGHTS_CSV_PATH):
-    with open(WEIGHTS_CSV_PATH, mode="w", newline="") as f:
-        csv.writer(f).writerow([
-            "round_num", "class_name",
-            "noise_scale",
-            "accuracy_cliente", "W1_cliente", "b1_cliente"
-        ])
-
 # ── CSV de acurácia da 1ª camada (apenas acurácia, sem pesos) ─────────────────
 # Arquivo separado e leve, fácil de abrir e plotar.
 ACCURACY_CSV_PATH = "acuracia_primeira_camada.csv"
@@ -562,17 +550,6 @@ if __name__ == "__main__":
                         W1_cliente, b1_cliente = client_params[0], client_params[1]
 
                         accuracy_cliente = evaluate_first_layer(W1_cliente, b1_cliente, X_client, Y_client)
-
-                        # Salva pesos completos em append
-                        with open(WEIGHTS_CSV_PATH, mode="a", newline="") as f:
-                            csv.writer(f).writerow([
-                                round_num,
-                                CLASS_NAMES[target_label],
-                                NOISE_SCALE,
-                                accuracy_cliente,
-                                W1_cliente.tolist(),
-                                b1_cliente.tolist()
-                            ])
 
                         # Salva apenas a acurácia em CSV separado, também em append
                         with open(ACCURACY_CSV_PATH, mode="a", newline="") as f:

@@ -114,31 +114,30 @@ def update_params(W1, b1, W2, b2, dW1, db1, dW2, db2, alpha):
     b2 = b2 - alpha * db2
     return W1, b1, W2, b2
 
-def split_data(X, Y, num_clients, samples_per_client=39):
+def split_data(X, Y, num_clients, samples_per_client=56):
     classes   = np.unique(Y)
-    per_class = samples_per_client // len(classes)  # 39 // 3 = 13
+    per_class = samples_per_client // len(classes)  # 56 // 3 = 18
 
     clients = []
     for _ in range(num_clients):
         idx_list = []
         for c in classes:
             class_idx = np.where(Y == c)[0]
-            chosen    = np.random.choice(class_idx,
-                                         size=min(per_class, len(class_idx)),
-                                         replace=False)
+            chosen    = np.random.choice(class_idx, size=min(per_class, len(class_idx)), replace=False)
             idx_list.extend(chosen)
         np.random.shuffle(idx_list)
         clients.append((X[:, idx_list], Y[idx_list]))
     return clients
 
 def init_params():
-    # W1 atualizado: INPUT_SIZE = 3072 (32*32*3) em vez de 784
     W1 = np.random.randn(64, INPUT_SIZE) * np.sqrt(2.0 / INPUT_SIZE)
     b1 = np.zeros((64, 1))
     W2 = np.random.randn(3, 64) * np.sqrt(2.0 / 64)
     b2 = np.zeros((3, 1))
     return W1, b1, W2, b2
 
+# Treinamento local com SGD + momentum e mini-batches
+# iterations=20, alpha=0.05, batch_size=16, momentum=0.9
 def local_train(X, Y, W1, b1, W2, b2, iterations, alpha,
                 batch_size=16, momentum=0.9):
     m = X.shape[1]
@@ -460,15 +459,6 @@ print(f"Dataset carregado: {data.shape[0]} amostras, {data.shape[1]-1} features 
 print("Primeiras labels:", data[:5, 0])
 exception_counter = 0
 
-# CSV de pesos da 1ª camada
-WEIGHTS_CSV_PATH = "pesos_primeira_camada.csv"
-if not os.path.exists(WEIGHTS_CSV_PATH):
-    with open(WEIGHTS_CSV_PATH, mode="w", newline="") as f:
-        csv.writer(f).writerow([
-            "round_num", "class_name",
-            "noise_scale",
-            "accuracy_cliente", "W1_cliente", "b1_cliente"
-        ])
 
 # CSV de acurácia da 1ª camada
 ACCURACY_CSV_PATH = "acuracia_primeira_camada.csv"
@@ -536,16 +526,6 @@ if __name__ == "__main__":
                         W1_cliente, b1_cliente = client_params[0], client_params[1]
 
                         accuracy_cliente = evaluate_first_layer(W1_cliente, b1_cliente, X_client, Y_client)
-
-                        with open(WEIGHTS_CSV_PATH, mode="a", newline="") as f:
-                            csv.writer(f).writerow([
-                                round_num,
-                                CLASS_NAMES[target_label],
-                                NOISE_SCALE,
-                                accuracy_cliente,
-                                W1_cliente.tolist(),
-                                b1_cliente.tolist()
-                            ])
 
                         with open(ACCURACY_CSV_PATH, mode="a", newline="") as f:
                             csv.writer(f).writerow([
