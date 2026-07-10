@@ -87,12 +87,6 @@ def forward_prop(W1, b1, W2, b2, X):
     A2 = softmax(Z2)
     return Z1, A1, Z2, A2
 
-def predict_with_first_layer(W1, b1, X):
-    Z1 = np.dot(W1, X) + b1
-    A1 = np.maximum(0, Z1)
-    predictions = np.argmax(A1, axis=0)
-    return predictions
-
 def back_prop(Z1, A1, Z2, A2, W2, X, Y):
     m = Y.size
     one_hot_Y = one_hot(Y, 3)
@@ -174,11 +168,6 @@ def aggregate(models):
 def evaluate_model(X, Y, W1, b1, W2, b2):
     _, _, _, A2 = forward_prop(W1, b1, W2, b2, X)
     predictions = np.argmax(A2, axis=0)
-    accuracy = np.mean(predictions == Y) * 100
-    return accuracy
-
-def evaluate_first_layer(W1, b1, X, Y):
-    predictions = predict_with_first_layer(W1, b1, X)
     accuracy = np.mean(predictions == Y) * 100
     return accuracy
 
@@ -459,16 +448,6 @@ print(f"Dataset carregado: {data.shape[0]} amostras, {data.shape[1]-1} features 
 print("Primeiras labels:", data[:5, 0])
 exception_counter = 0
 
-
-# CSV de acurácia da 1ª camada
-ACCURACY_CSV_PATH = "acuracia_primeira_camada.csv"
-if not os.path.exists(ACCURACY_CSV_PATH):
-    with open(ACCURACY_CSV_PATH, mode="w", newline="") as f:
-        csv.writer(f).writerow([
-            "class_name", "noise_scale",
-            "round_num", "accuracy_cliente"
-        ])
-
 if __name__ == "__main__":
 
     successful_seeds_per_class = {c: set() for c in CLASSES}
@@ -524,16 +503,6 @@ if __name__ == "__main__":
                         global_model_accuracy = evaluate_model(X_client, Y_client, W1, b1, W2, b2)
                         client_params = client_models[attacked_client_idx]
                         W1_cliente, b1_cliente = client_params[0], client_params[1]
-
-                        accuracy_cliente = evaluate_first_layer(W1_cliente, b1_cliente, X_client, Y_client)
-
-                        with open(ACCURACY_CSV_PATH, mode="a", newline="") as f:
-                            csv.writer(f).writerow([
-                                CLASS_NAMES[target_label],
-                                NOISE_SCALE,
-                                round_num,
-                                accuracy_cliente
-                            ])
 
                         loss_reconstructed_image, loss_images = reconstruct_via_loss(*client_params, target_label, client_data)
                         naive_reconstructed_image, naive_images = invert_model_naive(*client_params, target_label, client_data)
